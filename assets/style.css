@@ -116,6 +116,20 @@ figcaption { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
 .callout > :last-child { margin-bottom: 0; }
 .callout.source { border-left-color: var(--frontend); background: transparent; border: 1px solid var(--rule); border-left: 3px solid var(--frontend); }
 
+/* 설계 관점 / 실무 팁 상자: 모든 수업에서 쓴다 */
+.callout.design { border-left-color: var(--backend); background: transparent; border: 1px solid var(--rule); border-left: 3px solid var(--backend); }
+.callout.design::before { content: "🧭 설계 관점"; display: block; font-weight: 700; color: var(--backend); margin-bottom: .4rem; }
+.callout.tip { border-left-color: var(--ok); background: var(--ok-soft); }
+.callout.tip::before { content: "💡 실무 팁"; display: block; font-weight: 700; color: var(--ok); margin-bottom: .4rem; }
+
+/* 나란히 비교 (예: TypeScript ↔ C#). 좁은 화면에서는 위아래로 쌓인다 */
+.compare { display: grid; grid-template-columns: 1fr; gap: .75rem; margin: 1rem 0; }
+@media (min-width: 720px) {
+  .compare { grid-template-columns: 1fr 1fr; }
+  main.wide { max-width: 52rem; }
+}
+.compare pre { margin: 0; height: 100%; }
+
 /* 각주식 인용 */
 .cite { font-size: .75em; vertical-align: super; text-decoration: none; margin-left: 1px; }
 .sources { font-size: .85rem; color: var(--muted); }

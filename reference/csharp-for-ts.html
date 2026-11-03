@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TS → C# 치트시트</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<p class="kicker">Reference</p>
+<h1>TS → C# 치트시트</h1>
+<p class="lede">TypeScript로 아는 것을 C#으로 옮기는 표.</p>
+
+<h2>대응표</h2>
+<table>
+<thead><tr><th><span class="fe">TypeScript</span></th><th><span class="be">C#</span></th></tr></thead>
+<tbody>
+<tr><td><code>Promise&lt;T&gt;</code></td><td><code>Task&lt;T&gt;</code></td></tr>
+<tr><td>npm</td><td>NuGet</td></tr>
+<tr><td>화살표 함수 <code>=&gt;</code></td><td>람다 식 <code>=&gt;</code></td></tr>
+<tr><td><code>readonly x: T</code></td><td><code>T X { get; init; }</code></td></tr>
+<tr><td>필수 필드 (값을 꼭 넣어야 함)</td><td><code>required</code></td></tr>
+<tr><td><code>x: T | null</code></td><td><code>T? X</code></td></tr>
+<tr><td><code>"A" | "B" | "C"</code></td><td><code>enum E { A, B, C }</code></td></tr>
+<tr><td><code>x === null</code></td><td><code>x is null</code></td></tr>
+<tr><td><code>Date</code> (JSON에서는 <code>string</code>)</td><td><code>DateTimeOffset</code></td></tr>
+<tr><td><code>getter</code></td><td><code>bool IsOngoing =&gt; EndedAt is null;</code></td></tr>
+</tbody>
+</table>
+
+<h2>프로퍼티 고르기</h2>
+<table>
+<thead><tr><th>상황</th><th>선언</th></tr></thead>
+<tbody>
+<tr><td>만들 때 꼭 넣어야 하고, 이후 변경 불가</td><td><code>required T X { get; init; }</code></td></tr>
+<tr><td>만들 때 꼭 넣어야 하고, 이후 수정 가능</td><td><code>required T X { get; set; }</code></td></tr>
+<tr><td>없을 수 있고, 나중에 채움</td><td><code>T? X { get; set; }</code></td></tr>
+<tr><td>자동 생성되고, 변경 불가</td><td><code>Guid Id { get; init; } = Guid.NewGuid();</code></td></tr>
+<tr><td>enum 프로퍼티</td><td><code>required</code>를 붙인다 (기본값 0 함정)</td></tr>
+</tbody>
+</table>
+
+<h2>class와 record</h2>
+<table>
+<thead><tr><th></th><th><code>class</code></th><th><code>record</code></th></tr></thead>
+<tbody>
+<tr><td>동등성</td><td>참조 (같은 인스턴스인가)</td><td>값 (같은 값인가)</td></tr>
+<tr><td>baby-log 용도</td><td>DB 엔티티 (EF Core)</td><td>요청, 응답 등 주고받는 데이터</td></tr>
+<tr><td>복사본</td><td>직접 구현</td><td><code>a with { X = 1 }</code></td></tr>
+</tbody>
+</table>
+
+<h2>TS 쪽 실무 팁</h2>
+<ul>
+<li>API 응답의 날짜는 <code>string</code> 타입으로 받는다. JSON에는 날짜 타입이 없다.</li>
+<li>서버가 <code>null</code>을 보내는 필드는 <code>x?: T</code>가 아니라 <code>x: T | null</code>로 적는다.</li>
+</ul>
+
+<p class="sources">출처: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/tips-for-javascript-developers">Tips for JS/TS developers</a> · <a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record">Records</a> · <a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/required">required</a> · <a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/init">init</a> · <a href="https://learn.microsoft.com/en-us/dotnet/standard/datetime/choosing-between-datetime">DateTimeOffset</a><br>
+관련 수업: <a href="../lessons/0002-csharp-first-steps.html">0002 C# 첫걸음</a></p>
+</main>
+</body>
+</html>
