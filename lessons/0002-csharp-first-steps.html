@@ -192,9 +192,10 @@ var c = a with { StartedAt = now.AddMinutes(-10) };  // 일부만 바꾼 복사�
 <h2>오늘 저녁 PC 실습 <span class="tag pc">PC · 20분</span></h2>
 <ol>
   <li><a href="https://dotnet.microsoft.com/download">.NET 10 SDK</a>를 설치하고, 터미널에서 <code>dotnet --version</code>을 실행해 <code>10.</code>으로 시작하는 버전이 나오는지 확인해요.</li>
-  <li>새 콘솔 프로젝트를 만들어요.
-<pre>dotnet new console -n CSharpFirstSteps
-cd CSharpFirstSteps</pre></li>
+  <li>학습 폴더 안의 숙제 폴더에 새 콘솔 프로젝트를 만들어요.
+<pre>cd ~/MyFolder/102_study/01_webdev
+dotnet new console -o homework/0002-csharp-first-steps
+cd homework/0002-csharp-first-steps</pre></li>
   <li><code>Program.cs</code>의 내용을 아래 코드로 바꿔요. 맨 위에 실행 코드를 두고 타입 선언은 그 아래에 두는 순서를 지켜야 해요.
 <pre>var childId = Guid.NewGuid();
 var now = DateTimeOffset.Now;
@@ -233,7 +234,18 @@ public record StartSleepRequest(Guid ChildId, DateTimeOffset StartedAt);</pre></
       <li>마지막 출력 줄 아래에 <code>sleep.ChildId = Guid.NewGuid();</code>를 추가해요.</li>
     </ul>
     <strong>실행하기 전에 어떤 오류가 날지 먼저 예상해 보세요.</strong> 예상하고 확인하는 과정이 기억을 단단하게 해요.</li>
+  <li>같은 폴더에 <code>ANSWERS.md</code>를 만들고 세 가지를 적어요.
+    <ul>
+      <li>깨뜨리기 두 가지 각각에 대해, 실행 전 예상과 실제 오류 메시지</li>
+      <li>퀴즈 점수와 틀렸거나 헷갈린 문항 번호</li>
+      <li>궁금했던 점 (없으면 생략)</li>
+    </ul>
+    깨뜨리기를 마친 뒤 코드는 정상으로 되돌려 두세요.</li>
 </ol>
+
+<div class="callout">
+<p><strong>✅ 숙제 검사 받기</strong>: 다 했으면 Claude에게 <strong>"0002 숙제 검사해줘"</strong>라고 말하세요. Claude가 <code>homework/0002-csharp-first-steps/</code>의 코드를 읽고 직접 빌드하고 실행해서 확인한 다음, <code>ANSWERS.md</code>를 보고 피드백을 줘요. 결과는 다음 수업의 난이도에 반영돼요.</p>
+</div>
 
 <div class="callout source">
 <p><strong>📖 꼭 읽어 볼 원문</strong>: <a href="https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/tips-for-javascript-developers">Microsoft Learn: Roadmap for JavaScript and TypeScript developers learning C#</a>. TS 개발자가 C#에서 무엇을 그대로 쓰고 무엇을 새로 배워야 하는지 정리한 공식 안내예요. 이번 수업의 지도 역할을 하는 글이에요.</p>

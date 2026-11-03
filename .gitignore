@@ -4,3 +4,7 @@ NOTES.md
 learning-records/
 
 .DS_Store
+
+# .NET 빌드 산출물
+bin/
+obj/
