@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0003 · 경계를 넘는 데이터: C# 객체가 JSON이 되어 TS에 도착하기까지</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="wide">
+
+<p class="kicker">Lesson 0003 · 백엔드 ↔ 프론트엔드</p>
+<h1>경계를 넘는 데이터: C# 객체가 JSON이 되어 TS에 도착하기까지</h1>
+<p class="lede">이번 수업의 목표: <strong>C# 클래스와 직렬화 설정을 보고 실제로 나갈 JSON을 정확히 예측하고, 그에 맞는 TS 타입을 쓸 수 있게 되는 것. 그리고 반대 방향으로 들어오는 JSON이 무엇을 검사받지 않고 통과하는지 알게 되는 것.</strong></p>
+<p class="meta"><span class="tag tablet">태블릿 OK</span> 읽기와 퀴즈 약 25분 · <span class="tag pc">PC</span> 숙제 약 40분</p>
+
+<div class="callout">
+<p><strong>시작 전 떠올리기 (지난 수업 복습).</strong> 답을 머릿속으로 먼저 말해 본 다음 펼쳐 보세요.</p>
+<details class="recall"><summary><code>record class</code>는 참조 타입인가요, 값 타입인가요? 그리고 동등성은 무엇을 기준으로 하나요?</summary>참조 타입이에요. 그런데 동등성은 <strong>값</strong> 기준이에요. 두 질문은 서로 다른 축이에요.</details>
+<details class="recall"><summary>그럼 EF Core 엔티티로 record class가 맞지 않는 이유를 한 문장으로?</summary>EF Core는 키 하나에 인스턴스 하나를 두고 <strong>참조 동등성</strong>으로 추적하는데, record는 동등성을 값 기준으로 바꾸고 <code>with</code> 복사본 방식을 권하기 때문이에요. 그래서 "같은 엔티티"의 기준이 둘로 갈라져요.<a class="cite" href="#s12">[12]</a></details>
+</div>
+
+<h2>경계 질문: 이런 정보를 찾는 방법</h2>
+<p>지난 숙제에서 "enum을 JSON으로 바꾸는 attribute 같은 정보는 어떻게 공부해야 할지 모르겠다"는 질문이 있었어요. 답은 <strong>경계</strong><span class="en">(boundary)</span>라는 개념이에요. 데이터가 한 세계에서 다른 세계로 넘어가는 지점을 말해요.</p>
+<ul>
+  <li><span class="be">C# 객체</span> → <strong>JSON 텍스트</strong> → <span class="fe">TS 객체</span> (API 응답)</li>
+  <li><span class="fe">TS 객체</span> → <strong>JSON 텍스트</strong> → <span class="be">C# 객체</span> (API 요청)</li>
+  <li><span class="be">C# 객체</span> → <strong>DB 행</strong> (EF Core, 나중 수업)</li>
+</ul>
+<p>각 세계는 타입 체계가 달라요. C#에는 <code>enum</code>, <code>Guid</code>, <code>DateTimeOffset</code>이 있지만, JSON에는 문자열, 숫자, 불리언, null, 객체, 배열밖에 없어요. 그래서 경계를 넘을 때마다 <strong>누군가 변환 규칙을 정해야 하고</strong>, 버그는 거의 언제나 그 규칙을 모르는 곳에서 생겨요. 타입을 하나 만들 때마다 이렇게 물어보세요.</p>
+<div class="callout">
+<p style="font-size:1.1rem;margin:0"><strong>"이 값은 경계 반대편에서 어떻게 보이지?"</strong></p>
+</div>
+<p>답은 그 경계를 담당하는 <strong>직렬화기</strong><span class="en">(serializer)</span>의 문서에 있어요. .NET에서 JSON 경계를 담당하는 건 <code>System.Text.Json</code>이에요. 이 수업에 나오는 값은 모두 문서에서 확인했고, 문서에 없는 동작은 <strong>.NET 10.0.203에서 직접 실행해서</strong> 확인했어요.</p>
+
+<h2>나가는 방향: C# → JSON</h2>
+<p>아래 C# 객체를 직렬화해 볼게요. 설정을 켜고 끄면서 JSON이 어떻게 바뀌는지 보세요.</p>
+<pre><span class="label">C# · 직렬화할 객체</span>public enum DiaperContent { Pee, Poo, Both }
+
+public class DiaperRecord
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public required Guid ChildId { get; init; }
+    public required DateTimeOffset ChangedAt { get; set; }
+    public required DiaperContent Content { get; set; }
+    public string? Memo { get; set; }
+}
+
+// Content = DiaperContent.Poo, Memo = null, ChangedAt = 2026-11-04 21:30 (+09:00)</pre>
+
+<div class="toggle-demo" data-pretty="json">
+  <div class="toggles">
+    <label><input type="checkbox" data-key="web"> 웹 기본값 <code>JsonSerializerDefaults.Web</code> (ASP.NET Core가 쓰는 설정)</label>
+    <label><input type="checkbox" data-key="enum"> <code>JsonStringEnumConverter</code> 추가</label>
+    <label><input type="checkbox" data-key="nonull"> <code>DefaultIgnoreCondition = WhenWritingNull</code></label>
+  </div>
+  <pre class="toggle-out"></pre>
+  <script type="application/json" class="toggle-data">{"": "{\"Id\":\"3f2b8c1e-0000-4000-8000-000000000001\",\"ChildId\":\"a1b2c3d4-0000-4000-8000-000000000002\",\"ChangedAt\":\"2026-11-04T21:30:00+09:00\",\"Content\":1,\"Memo\":null}", "web": "{\"id\":\"3f2b8c1e-0000-4000-8000-000000000001\",\"childId\":\"a1b2c3d4-0000-4000-8000-000000000002\",\"changedAt\":\"2026-11-04T21:30:00+09:00\",\"content\":1,\"memo\":null}", "enum+web": "{\"id\":\"3f2b8c1e-0000-4000-8000-000000000001\",\"childId\":\"a1b2c3d4-0000-4000-8000-000000000002\",\"changedAt\":\"2026-11-04T21:30:00+09:00\",\"content\":\"Poo\",\"memo\":null}", "enum+nonull+web": "{\"id\":\"3f2b8c1e-0000-4000-8000-000000000001\",\"childId\":\"a1b2c3d4-0000-4000-8000-000000000002\",\"changedAt\":\"2026-11-04T21:30:00+09:00\",\"content\":\"Poo\"}", "enum": "{\"Id\":\"3f2b8c1e-0000-4000-8000-000000000001\",\"ChildId\":\"a1b2c3d4-0000-4000-8000-000000000002\",\"ChangedAt\":\"2026-11-04T21:30:00+09:00\",\"Content\":\"Poo\",\"Memo\":null}", "nonull": "{\"Id\":\"3f2b8c1e-0000-4000-8000-000000000001\",\"ChildId\":\"a1b2c3d4-0000-4000-8000-000000000002\",\"ChangedAt\":\"2026-11-04T21:30:00+09:00\",\"Content\":1}", "enum+nonull": "{\"Id\":\"3f2b8c1e-0000-4000-8000-000000000001\",\"ChildId\":\"a1b2c3d4-0000-4000-8000-000000000002\",\"ChangedAt\":\"2026-11-04T21:30:00+09:00\",\"Content\":\"Poo\"}", "nonull+web": "{\"id\":\"3f2b8c1e-0000-4000-8000-000000000001\",\"childId\":\"a1b2c3d4-0000-4000-8000-000000000002\",\"changedAt\":\"2026-11-04T21:30:00+09:00\",\"content\":1}"}</script>
+</div>
+<p class="meta">출력은 모두 .NET 10.0.203에서 실제로 실행한 결과예요.</p>
+
+<p>토글을 다 눌러 봤다면 네 가지를 발견했을 거예요.</p>
+<ol>
+  <li><strong>이름:</strong> 아무 설정도 하지 않으면 C# 이름 그대로(<code>ChildId</code>) 나가요. 웹 기본값은 속성 이름을 camelCase(<code>childId</code>)로 바꾸고, 읽을 때는 대소문자를 구분하지 않아요.<a class="cite" href="#s1">[1]</a> Microsoft 문서는 이 웹 기본값을 "ASP.NET Core가 웹 앱에 쓰는 기본 옵션"이라고 설명해요.<a class="cite" href="#s1">[1]</a> 그래서 API에서는 <code>childId</code>로 나가요.</li>
+  <li><strong>enum:</strong> <strong>기본은 숫자</strong>예요. <code>Poo</code>가 <code>1</code>이 돼요. 이름으로 보내려면 <code>JsonStringEnumConverter</code>가 필요해요.<a class="cite" href="#s2">[2]</a> 웹 기본값만 켜서는 여전히 숫자예요.</li>
+  <li><strong>날짜:</strong> <code>DateTimeOffset</code>은 ISO 8601 형식의 <strong>문자열</strong>로, 오프셋(<code>+09:00</code>)까지 포함해서 나가요.<a class="cite" href="#s3">[3]</a></li>
+  <li><strong>null:</strong> 기본적으로 모든 public 속성이 직렬화돼요.<a class="cite" href="#s4">[4]</a> 그래서 <code>"memo": null</code>이 나가요. <code>WhenWritingNull</code>을 켜면 <strong>키 자체가 사라져요.</strong><a class="cite" href="#s4">[4]</a></li>
+</ol>
+
+<h3>그래서 TS 타입은 이렇게 써요</h3>
+<p>baby-log는 웹 기본값과 enum 문자열 변환을 쓰고, null은 그대로 내보낸다고 가정할게요. 이 조합에 맞는 TS 타입은 이렇습니다.</p>
+<div class="compare">
+<pre><span class="label"><span class="be">나가는 JSON</span></span>{
+  "id": "3f2b8c1e-…",
+  "childId": "a1b2c3d4-…",
+  "changedAt": "2026-11-04T21:30:00+09:00",
+  "content": "Poo",
+  "memo": null
+}</pre>
+<pre><span class="label"><span class="fe">TypeScript</span></span>const diaperContents = ["Pee", "Poo", "Both"] as const;
+type DiaperContent = (typeof diaperContents)[number];
+//   ^ "Pee" | "Poo" | "Both"
+
+type DiaperRecordDto = {
+  id: string;          // Guid → string
+  childId: string;
+  changedAt: string;   // DateTimeOffset → string
+  content: DiaperContent;
+  memo: string | null; // null이 "있음"
+};</pre>
+</div>
+
+<div class="callout tip">
+<p><strong>값 목록과 타입은 한 곳에서 만드세요.</strong> 기저귀 입력 화면에는 "소변 / 대변 / 둘 다" 선택지가 필요해요. 그러려면 <strong>런타임에 존재하는 배열</strong>이 있어야 해요. 그런데 유니온 타입 <code>"Pee" | "Poo" | "Both"</code>를 따로 또 적으면, 값이 하나 추가될 때 두 곳을 고쳐야 하고 결국 언젠가 하나를 빠뜨려요. 위처럼 <code>as const</code> 배열을 먼저 만들고 <code>(typeof arr)[number]</code>로 타입을 <strong>뽑아내면</strong> 목록이 한 곳에만 있게 돼요.<a class="cite" href="#s7">[7]</a> TS 핸드북도 "요즘 TypeScript에서는 <code>as const</code> 객체로 충분하면 enum이 필요 없을 수 있다"고 말해요.<a class="cite" href="#s6">[6]</a></p>
+<p><strong><code>memo?: string</code>과 <code>memo: string | null</code>은 서버 설정에 따라 골라요.</strong> 서버가 null을 그대로 내보내면 키가 <em>있고</em> 값이 null이니 <code>string | null</code>을 써요. <code>WhenWritingNull</code>로 키를 빼면 <code>memo?: string</code>을 써요. 정답은 TS 쪽이 아니라 <strong>경계 반대편의 설정</strong>이 정해요.</p>
+</div>
+
+<h2>들어오는 방향: JSON → C# (여기가 진짜 위험해요)</h2>
+<p>프론트엔드가 보낸 JSON을 C#이 읽는 방향이에요. 웹 기본값과 <code>JsonStringEnumConverter</code>를 켠 상태에서 여러 입력을 직접 넣어 봤어요. <strong>오른쪽 열을 가리고 먼저 예측해 보세요.</strong></p>
+<table>
+<thead><tr><th>보낸 JSON (일부)</th><th>결과 (.NET 10.0.203에서 실행)</th></tr></thead>
+<tbody>
+<tr><td><code>"content": "poo"</code> (소문자)</td><td>✅ 통과, <code>Poo</code>로 읽힘</td></tr>
+<tr><td><code>"content": "Rainbow"</code></td><td>❌ <code>JsonException</code>: could not be converted to DiaperContent</td></tr>
+<tr><td><code>"content": 1</code> (숫자)</td><td>✅ 통과, <code>Poo</code>로 읽힘</td></tr>
+<tr><td><code>"content": 99</code></td><td>⚠️ <strong>통과</strong>, <code>Content = 99</code>(정의되지 않은 값)</td></tr>
+<tr><td><code>content</code> 키 없음</td><td>❌ <code>JsonException</code>: missing required properties including: 'content'</td></tr>
+<tr><td><code>"ChildId"</code> (PascalCase 키)</td><td>✅ 통과 (대소문자 구분 안 함)<a class="cite" href="#s1">[1]</a></td></tr>
+<tr><td><code>"changedAt": "…T12:30:00Z"</code></td><td>✅ 통과, 오프셋 <code>+00:00</code>으로 읽힘 (같은 순간)</td></tr>
+<tr><td><code>"changedAt": "…T21:30:00"</code> (오프셋 없음)</td><td>⚠️ 통과, 이 Mac에서는 <code>+09:00</code>으로 읽힘</td></tr>
+</tbody>
+</table>
+<p>짚어 볼 점이 세 가지 있어요.</p>
+<ul>
+  <li><strong><code>required</code>는 경계에서도 동작해요.</strong> System.Text.Json은 C#의 <code>required</code>를 "필수 속성"으로 취급해서, 키가 없으면 <code>JsonException</code>을 던져요.<a class="cite" href="#s5">[5]</a> 지난 수업에서 <code>required</code>를 붙인 효과가 여기까지 이어지는 거예요.</li>
+  <li><strong>enum은 범위를 검사하지 않아요.</strong> 문자열 변환기를 켜도 숫자 입력은 여전히 받아요. 그래서 <code>99</code>처럼 <strong>정의되지 않은 값</strong>도 아무 오류 없이 C# 객체 안으로 들어와요. DB에 "기저귀 내용물 99"가 저장될 수 있다는 뜻이에요.</li>
+  <li><strong>오프셋 없는 날짜는 "코드가 실행되는 컴퓨터"의 시간대로 해석된 것으로 보여요.</strong> 이 Mac은 +09:00이라 우연히 맞았어요. 하지만 서버가 UTC로 설정된 클라우드에서 돌면 같은 입력이 9시간 어긋날 가능성이 커요. 이 부분은 실행 결과를 보고 추론한 것이고, 문서에서 직접 확인하지는 않았어요. 그래서 프론트엔드는 <strong>항상 오프셋이 붙은 시각을 보내야 해요.</strong> JS의 <code>toISOString()</code>은 항상 UTC(<code>Z</code>)로 표기해요.<a class="cite" href="#s8">[8]</a></li>
+</ul>
+
+<div class="callout design">
+<p><strong>직렬화기는 형식만 지켜요. 의미는 지키지 않아요.</strong> <code>JsonException</code>을 던지는 건 "모양이 틀렸을 때"뿐이에요. "값이 말이 되는가"(enum 범위, 분유 양이 0 이하인지, 끝 시각이 시작보다 앞서는지)는 아무도 검사하지 않아요. 그래서 The Standard는 "모든 서비스는 자기 자신을 위해"<span class="en">(Every service for itself)</span>, 즉 각 서비스가 자기 입력과 출력을 스스로 검증해야 한다고 말해요.<a class="cite" href="#s10">[10]</a> baby-log에서는 이 검증을 Foundation 서비스의 <strong>구조적 검증</strong>에서 하게 돼요. enum 값이 정의된 값인지는 <code>Enum.IsDefined</code>로 확인할 수 있어요.<a class="cite" href="#s11">[11]</a></p>
+<p><strong>재사용성:</strong> 직렬화 설정은 enum마다 attribute를 붙이지 말고 <strong>앱 전체에 한 번만</strong> 등록하세요. 그러면 새 enum을 추가할 때 설정을 잊을 일이 없어요.</p>
+<p><strong>오버엔지니어링 경계:</strong> "숫자 enum을 막는 커스텀 JsonConverter를 직접 만들자"는 생각이 들 수 있어요. 하지만 검증은 어차피 서비스 계층에서 해야 하고, 직렬화 단계에서 막아도 서비스 검증은 사라지지 않아요. 같은 규칙을 두 곳에서 지키는 셈이 되니, 지금은 서비스 검증 하나로 충분해요.</p>
+</div>
+
+<h2>화면에 보여 줄 때: 시간대는 브라우저에서</h2>
+<p>서버는 오프셋이 붙은 시각을 그대로 보내고, <strong>사용자에게 보여 주는 변환은 브라우저에서</strong> 해요. <code>Intl.DateTimeFormat</code>은 언어와 지역에 맞게 날짜를 포맷하고,<a class="cite" href="#s9">[9]</a> 따로 지정하지 않으면 그 브라우저의 기본 시간대를 써요.<a class="cite" href="#s9">[9]</a></p>
+<pre><span class="label"><span class="fe">TypeScript</span>: 표시용 변환은 한 곳에</span>const timeFormat = new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" });
+
+export const formatRecordTime = (iso: string) =&gt; timeFormat.format(new Date(iso));
+// "2026-11-04T21:30:00+09:00" → 한국 브라우저: "26. 11. 4. 오후 9:30"</pre>
+<p class="meta">출력 문자열의 정확한 모양은 브라우저마다 조금씩 다를 수 있어요.</p>
+
+<h2>퀴즈</h2>
+<div class="quiz">
+
+<div class="q" data-answer="2">
+  <p class="q-text"><code>record class</code>를 설명한 문장 중 맞는 것은?</p>
+  <div class="opts">
+    <button class="opt">값 타입이고, 동등성도 값 기준이다</button>
+    <button class="opt">참조 타입이고, 동등성도 참조 기준이다</button>
+    <button class="opt">참조 타입이지만, 동등성은 값 기준이다</button>
+    <button class="opt">값 타입이지만, 동등성은 참조 기준이다</button>
+  </div>
+  <div class="explain">타입 종류와 동등성은 서로 다른 축이에요. <code>record class</code>는 참조 타입이고, 컴파일러가 동등성을 값 기준으로 만들어 줘요. 이 문항이 헷갈렸다면 0002의 표를 다시 보세요.</div>
+</div>
+
+<div class="q" data-answer="0">
+  <p class="q-text">ASP.NET Core API에서 <code>Content = DiaperContent.Poo</code>를 아무 추가 설정 없이 응답하면 JSON에는?</p>
+  <div class="opts">
+    <button class="opt"><code>"content": 1</code></button>
+    <button class="opt"><code>"content": "Poo"</code></button>
+    <button class="opt"><code>"Content": "Poo"</code></button>
+    <button class="opt"><code>"Content": 1</code></button>
+  </div>
+  <div class="explain">ASP.NET Core는 웹 기본값을 써서 이름은 camelCase(<code>content</code>)가 돼요.<a class="cite" href="#s1">[1]</a> 하지만 enum은 기본이 숫자예요.<a class="cite" href="#s2">[2]</a></div>
+</div>
+
+<div class="q" data-answer="3">
+  <p class="q-text">TS가 <code>"content": 99</code>를 보냈어요 (<code>JsonStringEnumConverter</code> 켜짐). C#에서는 어떻게 되나요?</p>
+  <div class="opts">
+    <button class="opt">JsonException이 발생한다</button>
+    <button class="opt">첫 멤버 Pee로 바뀐다</button>
+    <button class="opt">마지막 멤버 Both로 바뀐다</button>
+    <button class="opt">값 99가 그대로 들어온다</button>
+  </div>
+  <div class="explain">실제로 실행해 보면 정의되지 않은 값 99가 그대로 들어와요. 직렬화기는 형식만 확인하니까, 의미 검증(<code>Enum.IsDefined</code> 등)은 서비스에서 해야 해요.<a class="cite" href="#s11">[11]</a></div>
+</div>
+
+<div class="q" data-answer="1">
+  <p class="q-text">서버가 <code>WhenWritingNull</code>을 쓰고 있어요. <code>memo</code>에 맞는 TS 타입 선언은?</p>
+  <div class="opts">
+    <button class="opt"><code>memo: string | null</code></button>
+    <button class="opt"><code>memo?: string</code></button>
+    <button class="opt"><code>memo: string</code></button>
+    <button class="opt"><code>memo: null</code></button>
+  </div>
+  <div class="explain"><code>WhenWritingNull</code>이면 null인 속성은 키 자체가 빠져요.<a class="cite" href="#s4">[4]</a> 그래서 TS에서는 "키가 없을 수 있음", 즉 <code>?:</code>로 적어요.</div>
+</div>
+
+<div class="q" data-answer="2">
+  <p class="q-text">프론트엔드가 시각을 서버로 보낼 때 가장 안전한 형식은?</p>
+  <div class="opts">
+    <button class="opt"><code>"2026-11-04 21:30"</code></button>
+    <button class="opt"><code>"2026-11-04T21:30:00"</code></button>
+    <button class="opt"><code>"2026-11-04T12:30:00Z"</code></button>
+    <button class="opt"><code>"오후 9:30"</code></button>
+  </div>
+  <div class="explain">오프셋(<code>Z</code> 또는 <code>+09:00</code>)이 있어야 "어느 순간"인지 하나로 정해져요. 오프셋이 없으면 서버가 실행되는 환경의 시간대로 해석되어 어긋날 수 있어요. <code>toISOString()</code>이 바로 이 <code>Z</code> 형식을 만들어요.<a class="cite" href="#s8">[8]</a></div>
+</div>
+
+<div class="q" data-answer="0">
+  <p class="q-text">C#의 <code>required</code> 속성이 요청 JSON에 아예 없으면?</p>
+  <div class="opts">
+    <button class="opt">JsonException이 발생한다</button>
+    <button class="opt">기본값으로 채워져 들어온다</button>
+    <button class="opt">null로 채워져 들어온다</button>
+    <button class="opt">컴파일 오류가 발생한다</button>
+  </div>
+  <div class="explain">System.Text.Json은 C#의 <code>required</code>를 필수 속성으로 취급해서, 키가 없으면 <code>JsonException</code>을 던져요.<a class="cite" href="#s5">[5]</a> 컴파일 오류는 아니에요. JSON은 실행 중에 도착하니까요.</div>
+</div>
+
+<div class="q" data-answer="3">
+  <p class="q-text">입력 화면의 선택지 목록과 TS 유니온 타입을 함께 관리하는 가장 좋은 방법은?</p>
+  <div class="opts">
+    <button class="opt">유니온 타입과 배열을 따로 적는다</button>
+    <button class="opt">TS enum을 만들어 둘 다 쓴다</button>
+    <button class="opt">문자열을 그때그때 직접 적는다</button>
+    <button class="opt"><code>as const</code> 배열에서 타입을 뽑는다</button>
+  </div>
+  <div class="explain">값 목록을 <code>as const</code> 배열 한 곳에만 두고, 타입은 <code>(typeof arr)[number]</code>로 뽑아내요.<a class="cite" href="#s7">[7]</a> 값이 추가되어도 고칠 곳이 하나뿐이에요.</div>
+</div>
+
+</div>
+
+<h2>PC 숙제 <span class="tag pc">PC · 40분</span></h2>
+<p>이번 숙제는 지난번보다 어려워요. <strong>3번 예측은 꼭 실행하기 전에</strong> 적어 주세요. 예측이 틀린 곳이 바로 이번에 배울 곳이에요.</p>
+<ol>
+  <li>프로젝트를 만들어요.
+<pre>cd ~/MyFolder/102_study/01_webdev
+dotnet new console -o homework/0003-boundary-data
+cd homework/0003-boundary-data</pre></li>
+  <li><strong>모델 만들기</strong>: baby-log의 <strong>병 수유 기록</strong>을 C#으로 만들어요. 용어집에 따르면 병 수유는 "분유나 유축한 모유를 젖병으로 먹인 것"이에요.
+    <ul>
+      <li><code>enum BottleContent { Formula, BreastMilk }</code></li>
+      <li><code>BottleFeedingRecord</code>: <code>Id</code>, <code>ChildId</code>, <code>FedAt</code>(<code>DateTimeOffset</code>), <code>Content</code>, <code>AmountMl</code>(<code>int</code>), <code>Memo</code>(선택). 무엇에 <code>required</code>, <code>init</code>, <code>set</code>, <code>?</code>를 붙일지는 직접 정하고, 이유를 <code>ANSWERS.md</code>에 한 줄씩 적어요.</li>
+      <li>직렬화 설정은 웹 기본값과 <code>JsonStringEnumConverter</code>를 쓰고, <strong>한 곳에서만</strong> 만들어요.</li>
+    </ul></li>
+  <li><strong>예측 → 실행</strong>: 아래 다섯 개의 JSON을 <code>Deserialize</code>해 보기 <em>전에</em>, 결과(통과 또는 예외, 그리고 들어온 값)를 <code>ANSWERS.md</code>에 표로 적어요. 그다음 실행해서 맞았는지 표시해요.
+<pre>① {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"formula","amountMl":120}
+② {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"Juice","amountMl":120}
+③ {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula","amountMl":"120"}
+④ {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula","amountMl":-50}
+⑤ {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula"}</pre>
+    <code>…</code> 자리에는 아무 Guid나 넣으세요. ③은 이 수업에서 다루지 않은 웹 기본값 규칙이 하나 걸려 있어요. 문서<a class="cite" href="#s1">[1]</a>에서 찾아보세요.</li>
+  <li><strong>검증 함수</strong>: <code>static void Validate(BottleFeedingRecord record)</code>를 만들어요. 다음 세 경우에 <code>ArgumentException</code>을 던지게 해요. 실행해서 ④가 막히는지 확인해요.
+    <ul>
+      <li><code>Content</code>가 정의되지 않은 enum 값인 경우</li>
+      <li><code>AmountMl</code>이 1~500 범위를 벗어난 경우</li>
+      <li><code>FedAt</code>이 미래인 경우 (5분 여유)</li>
+    </ul>
+    "미래인지"를 판단할 때 <code>DateTimeOffset.Now</code>를 함수 안에서 직접 부르면 테스트하기 어려워져요. 어떻게 하면 좋을지 생각해서 <code>ANSWERS.md</code>에 적어 보세요. 정답이 없는 설계 질문이고, The Standard 수업으로 이어져요.</li>
+  <li><strong>TS 타입</strong>: <code>boundary.ts</code> 파일에 이 API 응답에 맞는 TS 타입을 써요. 실행할 필요는 없어요. <code>as const</code> 패턴을 써요.</li>
+</ol>
+
+<div class="callout">
+<p><strong>✅ 숙제 검사</strong>: 다 하면 Claude에게 <strong>"0003 숙제 검사해줘"</strong>라고 말하세요. 퀴즈 점수와 헷갈린 문항도 <code>ANSWERS.md</code>에 적어 주세요.</p>
+</div>
+
+<div class="callout source">
+<p><strong>📖 꼭 읽어 볼 원문</strong>: <a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/customize-properties">Microsoft Learn: How to customize property names and values with System.Text.Json</a>. 이번 수업의 "경계 규칙"이 거의 다 이 문서에 있어요. 처음부터 끝까지 다 읽을 필요는 없어요. <strong>목차를 훑으면서 "이런 걸 바꿀 수 있구나"만 머리에 지도처럼 넣어 두세요.</strong> 나중에 경계 문제를 만나면 여기로 돌아오면 돼요.</p>
+</div>
+
+<div class="callout">
+<p><strong>💬 질문은 언제든 Claude에게.</strong> 예: "Guid를 TS에서 string 말고 브랜드 타입으로 만들면 좋아?", "API 응답 타입을 C#에서 자동 생성할 수는 없어?"</p>
+</div>
+
+<p>요약본: <a href="../reference/json-boundary.html">JSON 경계 치트시트</a> · <a href="../reference/csharp-for-ts.html">TS → C# 치트시트</a></p>
+
+<h3>출처</h3>
+<ol class="sources">
+  <li id="s1"><a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/configure-options">Microsoft Learn: Configure options with System.Text.Json</a> (Web defaults)</li>
+  <li id="s2"><a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/customize-properties">Microsoft Learn: Customize property names and values</a> (Enums as strings)</li>
+  <li id="s3"><a href="https://learn.microsoft.com/en-us/dotnet/standard/datetime/system-text-json-support">Microsoft Learn: DateTime and DateTimeOffset support in System.Text.Json</a></li>
+  <li id="s4"><a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/ignore-properties">Microsoft Learn: Ignore properties</a></li>
+  <li id="s5"><a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/required-properties">Microsoft Learn: Required properties</a></li>
+  <li id="s6"><a href="https://www.typescriptlang.org/docs/handbook/enums.html">TypeScript Handbook: Enums</a> (Objects vs Enums)</li>
+  <li id="s7"><a href="https://www.typescriptlang.org/docs/handbook/2/indexed-access-types.html">TypeScript Handbook: Indexed Access Types</a></li>
+  <li id="s8"><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString">MDN: Date.prototype.toISOString()</a></li>
+  <li id="s9"><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat">MDN: Intl.DateTimeFormat</a></li>
+  <li id="s10"><a href="https://github.com/hassanhabib/The-Standard/blob/master/2.%20Services/2.%20Services.md">The Standard: 2. Services</a></li>
+  <li id="s11"><a href="https://learn.microsoft.com/en-us/dotnet/api/system.enum.isdefined">Microsoft Learn: Enum.IsDefined</a></li>
+  <li id="s12"><a href="https://learn.microsoft.com/en-us/ef/core/change-tracking/identity-resolution">Microsoft Learn: Identity resolution in EF Core</a></li>
+</ol>
+
+<nav class="lesson-nav">
+  <a href="0002-csharp-first-steps.html">← 0002 C# 첫걸음</a>
+  <span>다음: 0004 (준비 중) →</span>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/toggle-demo.js"></script>
+</body>
+</html>

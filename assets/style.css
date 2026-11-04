@@ -130,6 +130,15 @@ figcaption { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
 }
 .compare pre { margin: 0; height: 100%; }
 
+/* 토글 데모: assets/toggle-demo.js 와 함께 쓴다 */
+.toggle-demo { border: 1px solid var(--rule); border-radius: 10px; padding: 1rem; margin: 1.5rem 0; }
+.toggle-demo .toggles { display: grid; gap: .4rem; margin-bottom: .75rem; }
+.toggle-demo label { display: flex; align-items: center; gap: .6rem; min-height: 44px; cursor: pointer; font-size: .95rem; }
+.toggle-demo input[type="checkbox"] { width: 1.3rem; height: 1.3rem; accent-color: var(--accent); flex: none; }
+.toggle-demo .toggle-out { margin: 0; }
+@keyframes flash { from { background: var(--accent-soft); } to { background: var(--code-bg); } }
+.toggle-demo .toggle-out.flash { animation: flash .6s ease-out; }
+
 /* 각주식 인용 */
 .cite { font-size: .75em; vertical-align: super; text-decoration: none; margin-left: 1px; }
 .sources { font-size: .85rem; color: var(--muted); }

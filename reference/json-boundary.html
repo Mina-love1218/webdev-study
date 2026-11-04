@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSON 경계 치트시트</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<p class="kicker">Reference</p>
+<h1>JSON 경계 치트시트</h1>
+<p class="lede">C# ↔ JSON ↔ TS. 타입을 만들 때마다 묻기: <strong>"이 값은 경계 반대편에서 어떻게 보이지?"</strong></p>
+
+<h2>타입 대응 (System.Text.Json, 웹 기본값)</h2>
+<table>
+<thead><tr><th><span class="be">C#</span></th><th>JSON</th><th><span class="fe">TS</span></th></tr></thead>
+<tbody>
+<tr><td><code>ChildId</code> (속성 이름)</td><td><code>"childId"</code></td><td><code>childId</code></td></tr>
+<tr><td><code>Guid</code></td><td>문자열</td><td><code>string</code></td></tr>
+<tr><td><code>DateTimeOffset</code></td><td><code>"2026-11-04T21:30:00+09:00"</code></td><td><code>string</code></td></tr>
+<tr><td><code>enum</code> (기본)</td><td>숫자 <code>1</code></td><td>⚠️ 숫자</td></tr>
+<tr><td><code>enum</code> + <code>JsonStringEnumConverter</code></td><td><code>"Poo"</code></td><td><code>"Pee" | "Poo" | "Both"</code></td></tr>
+<tr><td><code>string?</code> = null (기본)</td><td><code>"memo": null</code></td><td><code>memo: string | null</code></td></tr>
+<tr><td><code>string?</code> = null + <code>WhenWritingNull</code></td><td>키 없음</td><td><code>memo?: string</code></td></tr>
+</tbody>
+</table>
+
+<h2>들어오는 JSON에서 조심할 것</h2>
+<table>
+<thead><tr><th>입력</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td><code>required</code> 키 없음</td><td>❌ <code>JsonException</code></td></tr>
+<tr><td>enum 이름이 틀림 (<code>"Rainbow"</code>)</td><td>❌ <code>JsonException</code></td></tr>
+<tr><td>enum 소문자 (<code>"poo"</code>)</td><td>✅ 통과</td></tr>
+<tr><td>enum 범위 밖 숫자 (<code>99</code>)</td><td>⚠️ <strong>통과</strong> → 서비스에서 <code>Enum.IsDefined</code>로 검증</td></tr>
+<tr><td>숫자 자리에 문자열 (<code>"120"</code>)</td><td>✅ 통과 (웹 기본값 <code>AllowReadingFromString</code>)</td></tr>
+<tr><td>의미상 잘못된 값 (<code>-50</code> ml)</td><td>⚠️ 통과 → 서비스에서 검증</td></tr>
+<tr><td>오프셋 없는 시각</td><td>⚠️ 실행 환경의 시간대로 해석 → 항상 오프셋 붙여 보내기</td></tr>
+</tbody>
+</table>
+<p><strong>직렬화기는 형식만 지킨다. 의미는 서비스가 검증한다.</strong></p>
+
+<h2>설정은 앱 전체에 한 번만</h2>
+<pre>var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+options.Converters.Add(new JsonStringEnumConverter());</pre>
+
+<h2>TS: 값 목록과 타입을 한 곳에서</h2>
+<pre>const diaperContents = ["Pee", "Poo", "Both"] as const;
+type DiaperContent = (typeof diaperContents)[number];</pre>
+
+<h2>시각 표시는 브라우저에서</h2>
+<pre>const timeFormat = new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" });
+timeFormat.format(new Date(iso));</pre>
+
+<p class="sources">근거: Microsoft Learn System.Text.Json 문서 (<a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/configure-options">options</a>, <a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/customize-properties">customize</a>, <a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/required-properties">required</a>, <a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/ignore-properties">ignore</a>) + .NET 10.0.203에서 직접 실행해 확인<br>
+관련 수업: <a href="../lessons/0003-data-across-boundaries.html">0003 경계를 넘는 데이터</a></p>
+</main>
+</body>
+</html>
