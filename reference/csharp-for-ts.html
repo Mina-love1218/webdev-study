@@ -24,6 +24,9 @@
 <tr><td><code>x: T | null</code></td><td><code>T? X</code></td></tr>
 <tr><td><code>"A" | "B" | "C"</code></td><td><code>enum E { A, B, C }</code></td></tr>
 <tr><td><code>x === null</code></td><td><code>x is null</code></td></tr>
+<tr><td><code>a?.b</code></td><td><code>a?.B</code> (a가 null이면 결과도 null, 뒤는 실행 안 됨)</td></tr>
+<tr><td><code>a ?? b</code></td><td><code>a ?? b</code></td></tr>
+<tr><td><code>x ??= y</code></td><td><code>x ??= y</code></td></tr>
 <tr><td><code>Date</code> (JSON에서는 <code>string</code>)</td><td><code>DateTimeOffset</code></td></tr>
 <tr><td><code>getter</code></td><td><code>bool IsOngoing =&gt; EndedAt is null;</code></td></tr>
 </tbody>
