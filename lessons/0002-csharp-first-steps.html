@@ -82,7 +82,18 @@ var b = new StartSleepRequest(childId, now);
 Console.WriteLine(a == b);              // True: 값이 같으면 같다
 
 var c = a with { StartedAt = now.AddMinutes(-10) };  // 일부만 바꾼 복사본</pre>
-<p>그럼 <code>SleepRecord</code>는 왜 record가 아닐까요? Microsoft 문서에 이유가 나와 있어요. Entity Framework Core는 <strong>참조 동등성</strong><span class="en">(reference equality)</span>에 의존하기 때문에, record는 "EF Core의 엔티티 타입으로 적합하지 않아요".<a class="cite" href="#s2">[2]</a> 그래서 baby-log에서는 이렇게 나눠요.</p>
+<p>여기서 헷갈리기 쉬운 점이 있어요. <strong>"참조 타입인가 값 타입인가"</strong>와 <strong>"무엇을 기준으로 같다고 보는가"</strong>는 서로 다른 질문이에요. <code>record</code>(= <code>record class</code>)는 <strong>참조 타입</strong>이에요. 다만 컴파일러가 <code>Equals</code>, <code>GetHashCode</code>, <code>==</code>를 값 기준으로 만들어 줘요.<a class="cite" href="#s2">[2]</a></p>
+<table>
+<thead><tr><th></th><th>타입 종류 (대입 시 무엇이 복사되나)</th><th>기본 동등성 (무엇이 같으면 같은가)</th></tr></thead>
+<tbody>
+<tr><td><code>class</code></td><td>참조 타입: 참조가 복사됨</td><td>참조: 메모리 속 같은 객체인가</td></tr>
+<tr><td><code>record</code> / <code>record class</code></td><td>참조 타입: 참조가 복사됨</td><td>값: 같은 타입이고 같은 값인가</td></tr>
+<tr><td><code>struct</code></td><td>값 타입: 값 전체가 복사됨</td><td>값 (<code>Equals</code>만 됨, <code>==</code>는 직접 정의해야 함)</td></tr>
+<tr><td><code>record struct</code></td><td>값 타입: 값 전체가 복사됨</td><td>값 (<code>==</code>도 자동으로 생성됨)</td></tr>
+</tbody>
+</table>
+<p class="meta">출처: 레코드 문서<a class="cite" href="#s2">[2]</a>, 동등성 비교 문서<a class="cite" href="#s9">[9]</a></p>
+<p>그럼 <code>SleepRecord</code>는 왜 record가 아닐까요? EF Core가 문제 삼는 것은 <strong>타입 종류가 아니라 동등성</strong>이에요. 하나의 DbContext는 같은 기본 키를 가진 엔티티 인스턴스를 <strong>하나만</strong> 추적하고, 엔티티를 비교할 때 참조 동등성을 써요.<a class="cite" href="#s10">[10]</a> Microsoft는 레코드 문서에서 EF Core가 "개념적으로 하나인 엔티티에 인스턴스 하나만 쓰도록 보장하려고 참조 동등성에 의존한다"고 설명하고, 그래서 "record와 record struct는 EF Core 엔티티 타입으로 적합하지 않다"고 말해요.<a class="cite" href="#s2">[2]</a> 그래서 baby-log에서는 이렇게 나눠요.</p>
 <table>
 <thead><tr><th>용도</th><th>타입</th><th>예</th></tr></thead>
 <tbody>
@@ -267,6 +278,8 @@ public record StartSleepRequest(Guid ChildId, DateTimeOffset StartedAt);</pre></
   <li id="s6"><a href="https://learn.microsoft.com/en-us/dotnet/standard/datetime/choosing-between-datetime">Microsoft Learn: Choose between DateTime, DateTimeOffset, …</a></li>
   <li id="s7"><a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/enum">Microsoft Learn: Enumeration types</a></li>
   <li id="s8"><a href="https://www.json.org/json-en.html">JSON.org: Introducing JSON</a> (JSON 값의 종류)</li>
+  <li id="s9"><a href="https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/expressions/equality">Microsoft Learn: Equality comparisons</a></li>
+  <li id="s10"><a href="https://learn.microsoft.com/en-us/ef/core/change-tracking/identity-resolution">Microsoft Learn: Identity resolution in EF Core</a></li>
 </ol>
 
 <nav class="lesson-nav">
