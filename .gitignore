@@ -8,3 +8,6 @@ learning-records/
 # .NET 빌드 산출물
 bin/
 obj/
+
+# 숙제는 로컬에만 둔다
+homework/
