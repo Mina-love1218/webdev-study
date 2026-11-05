@@ -258,9 +258,28 @@ public class SleepRecord
     public DateTimeOffset? EndedAt { get; set; }
     public required SleepQuality Quality { get; set; }
 }</pre>
-<p>꼭 알아 둘 규칙 두 가지:</p>
+<h3>한 줄씩 풀어 보기</h3>
 <ul>
-  <li><strong>옵션은 한 번 만들어서 재사용해요.</strong> Microsoft는 "같은 옵션을 반복해서 쓴다면 매번 새로 만들지 말고 같은 인스턴스를 재사용하라"고 해요. 또 "처음 직렬화하거나 역직렬화한 뒤에는 인스턴스가 변경 불가능해진다"고 해요.<a class="cite" href="#s1">[1]</a> 실제로 한 번 사용한 옵션의 속성을 바꾸려고 하면 <code>InvalidOperationException</code>이 나요.</li>
+  <li><strong><code>new JsonSerializerOptions(...)</code></strong>: 옵션은 객체라서 <code>new</code>로 만들어요. <code>new</code>를 빠뜨리면 메서드 호출로 읽혀서 CS1955 "메서드처럼 사용할 수 없다" 오류가 나요.</li>
+  <li><strong><code>(JsonSerializerDefaults.Web)</code></strong>: "웹 기본값에서 출발하라"는 뜻이에요. <code>JsonSerializerDefaults.Web;</code>처럼 이것만 한 줄로 쓰면 enum 값 하나만 덩그러니 놓인 셈이라 문장이 되지 않아요(CS0201). 웹 기본값은 세 가지를 바꿔요.<a class="cite" href="#s1">[1]</a>
+    <ul>
+      <li>속성 이름을 camelCase로 써요.</li>
+      <li>읽을 때 속성 이름의 대소문자를 구분하지 않아요.</li>
+      <li>숫자 자리에 <strong>문자열로 된 숫자</strong>가 와도 읽어요(<code>AllowReadingFromString</code>).</li>
+    </ul>
+    괄호를 비우면(<code>new JsonSerializerOptions()</code>) <code>General</code> 기본값이 돼서 <code>"ChildId"</code>처럼 C# 이름 그대로 나가요.</li>
+  <li><strong><code>{ WriteIndented = true, ... }</code></strong>: 객체 초기화자예요. 0002에서 <code>new SleepRecord { ChildId = … }</code>로 쓴 것과 같은 문법이에요.</li>
+  <li><strong><code>Converters = { new JsonStringEnumConverter() }</code></strong>: <code>Converters</code>는 변환기 <strong>목록</strong>이에요. 객체를 만든 뒤에 <code>options.Converters.Add(new JsonStringEnumConverter());</code>로 추가해도 결과는 같아요. 단, 아래 "한 번 쓰면 잠긴다" 규칙 때문에 <strong>처음 쓰기 전에</strong> 추가해야 해요.</li>
+  <li><strong><code>Serialize(sleep, options)</code> / <code>Deserialize&lt;T&gt;(json, options)</code></strong>: 두 번째 인자로 옵션을 넘겨요. 빠뜨리면 <code>General</code> 기본값이 적용돼서 <code>{"ChildId":"…","Quality":0}</code>처럼 나가요(실행해서 확인했어요).</li>
+  <li><strong><code>SleepRecord?</code></strong>: JSON 문자열이 <code>null</code>이면 <code>Deserialize</code>의 결과도 null이라서 반환 타입에 <code>?</code>가 붙어요. 그래서 <code>back?.Quality</code>처럼 꺼내요.</li>
+</ul>
+
+<h3>꼭 알아 둘 규칙 두 가지</h3>
+<ul>
+  <li><strong>옵션은 한 번 만들어서 재사용하고, 한 번 쓰면 잠겨요.</strong> Microsoft는 "같은 옵션을 반복해서 쓴다면 매번 새로 만들지 말고 같은 인스턴스를 재사용하라"고 해요. 또 "처음 직렬화하거나 역직렬화한 뒤에는 인스턴스가 변경 불가능해진다"고 해요.<a class="cite" href="#s1">[1]</a> 실제로 한 번 쓴 옵션을 바꾸려고 하면 이런 예외가 나요.
+<pre>InvalidOperationException: This JsonSerializerOptions instance is read-only
+or has already been used in serialization or deserialization.</pre>
+    .NET 9부터 있는 <code>JsonSerializerOptions.Web</code>도 읽기 전용이라서, 거기에 변환기를 추가하려고 하면 같은 예외가 나요(실행해서 확인했어요). 그러니 설정은 <strong>만들 때 한꺼번에</strong> 다 넣으세요.</li>
   <li><strong>ASP.NET Core API에서는 옵션을 직접 만들지 않아요.</strong> 프레임워크가 웹 기본값으로 만들어 두고, 우리는 거기에 설정만 덧붙여요(Controller 수업에서 다뤄요). 이 숙제는 콘솔 앱이라 직접 만드는 거예요.</li>
 </ul>
 
@@ -271,27 +290,71 @@ public class SleepRecord
 <pre>cd ~/MyFolder/102_study/01_webdev
 dotnet new console -o homework/0003-boundary-data
 cd homework/0003-boundary-data</pre></li>
-  <li><strong>모델 만들기</strong>: baby-log의 <strong>병 수유 기록</strong>을 C#으로 만들어요. 용어집에 따르면 병 수유는 "분유나 유축한 모유를 젖병으로 먹인 것"이에요.
+  <li><strong>골격 붙여 넣기</strong>: <code>Program.cs</code>를 아래 골격으로 통째로 바꾸고, <code>____</code> 자리를 채워요. 필요한 문법은 모두 이 수업과 0002에 있어요.
+<pre><span class="label">C# · 빈칸 채우기 골격</span>using System.Text.Json;
+using System.Text.Json.Serialization;
+
+// 1) 직렬화 옵션: 앱 전체에서 한 번만 만든다 ("코드로 직렬화하기" 참고)
+var options = ____ JsonSerializerOptions(JsonSerializerDefaults.Web);
+options.Converters.Add(new ____());
+
+// 2) JSON 다섯 개. 실행 전에 ANSWERS.md에 예측부터!
+string[] inputs =
+[
+    """{"childId":"a1b2c3d4-0000-4000-8000-000000000002","fedAt":"2026-11-04T21:30:00+09:00","content":"formula","amountMl":120}""",
+    """{"childId":"a1b2c3d4-0000-4000-8000-000000000002","fedAt":"2026-11-04T21:30:00+09:00","content":"Juice","amountMl":120}""",
+    """{"childId":"a1b2c3d4-0000-4000-8000-000000000002","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula","amountMl":"120"}""",
+    """{"childId":"a1b2c3d4-0000-4000-8000-000000000002","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula","amountMl":-50}""",
+    """{"childId":"a1b2c3d4-0000-4000-8000-000000000002","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula"}""",
+];
+
+foreach (var json in inputs)
+{
+    try
+    {
+        var record = JsonSerializer.Deserialize&lt;BottleFeedingRecord&gt;(json, options)!;
+        Console.WriteLine($"통과: Content={record.Content}, AmountMl={record.AmountMl}");
+
+        BottleFeedingValidator.Validate(record, ____);   // 3) "지금"을 바깥에서 넘긴다
+        Console.WriteLine("  검증도 통과");
+    }
+    catch (JsonException e)     { Console.WriteLine($"경계에서 막힘: {e.Message}"); }
+    catch (ArgumentException e) { Console.WriteLine($"  검증에서 막힘: {e.Message}"); }
+}
+
+public enum BottleContent { Formula, BreastMilk }
+
+public ____ BottleFeedingRecord                // 엔티티 → class? record?
+{
+    public Guid Id { get; init; } = Guid.NewGuid();   // id는 서버가 정한다
+    public ____ Guid ChildId { get; ____; }
+    public ____ DateTimeOffset FedAt { get; ____; }
+    public ____ BottleContent Content { get; ____; }  // 필드 말고 프로퍼티!
+    public ____ int AmountMl { get; ____; }
+    public string? Memo { get; set; }
+}
+
+public static class BottleFeedingValidator
+{
+    public static void Validate(BottleFeedingRecord record, DateTimeOffset now)
+    {
+        if (!Enum.IsDefined(record.Content))
+            throw new ArgumentException($"정의되지 않은 내용물: {record.Content}");
+
+        if (record.AmountMl ____)                     // 1~500 밖이면
+            throw new ArgumentException($"잘못된 양: {record.AmountMl}");
+
+        if (record.FedAt > now + TimeSpan.____(5))   // 5분 여유
+            throw new ArgumentException($"미래 시각: {record.FedAt}");
+    }
+}</pre>
     <ul>
-      <li><code>enum BottleContent { Formula, BreastMilk }</code></li>
-      <li><code>BottleFeedingRecord</code>: <code>Id</code>, <code>ChildId</code>, <code>FedAt</code>(<code>DateTimeOffset</code>), <code>Content</code>, <code>AmountMl</code>(<code>int</code>), <code>Memo</code>(선택). 무엇에 <code>required</code>, <code>init</code>, <code>set</code>, <code>?</code>를 붙일지는 직접 정하고, 이유를 <code>ANSWERS.md</code>에 한 줄씩 적어요.</li>
-      <li>직렬화 설정은 웹 기본값과 <code>JsonStringEnumConverter</code>를 쓰고, <strong>한 곳에서만</strong> 만들어요.</li>
+      <li><code>"""…"""</code>는 C#의 <strong>원시 문자열 리터럴</strong>(raw string literal)이에요. 따옴표를 <code>\"</code>로 이스케이프하지 않고 JSON을 그대로 쓸 수 있어요.</li>
+      <li>빈칸 <code>____</code>에 <code>required</code>를 넣을지 말지는 직접 정하고, 이유를 <code>ANSWERS.md</code>에 한 줄씩 적어요. <code>Content</code>나 <code>AmountMl</code>에 붙이면 ⑤의 결과가 달라질까요?</li>
     </ul></li>
-  <li><strong>예측 → 실행</strong>: 아래 다섯 개의 JSON을 <code>Deserialize</code>해 보기 <em>전에</em>, 결과(통과 또는 예외, 그리고 들어온 값)를 <code>ANSWERS.md</code>에 표로 적어요. 그다음 실행해서 맞았는지 표시해요.
-<pre>① {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"formula","amountMl":120}
-② {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"Juice","amountMl":120}
-③ {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula","amountMl":"120"}
-④ {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula","amountMl":-50}
-⑤ {"childId":"…","fedAt":"2026-11-04T21:30:00+09:00","content":"Formula"}</pre>
-    <code>…</code> 자리에는 아무 Guid나 넣으세요. ③은 이 수업에서 다루지 않은 웹 기본값 규칙이 하나 걸려 있어요. 문서<a class="cite" href="#s1">[1]</a>에서 찾아보세요.</li>
-  <li><strong>검증 함수</strong>: <code>static void Validate(BottleFeedingRecord record)</code>를 만들어요. 다음 세 경우에 <code>ArgumentException</code>을 던지게 해요. 실행해서 ④가 막히는지 확인해요.
-    <ul>
-      <li><code>Content</code>가 정의되지 않은 enum 값인 경우</li>
-      <li><code>AmountMl</code>이 1~500 범위를 벗어난 경우</li>
-      <li><code>FedAt</code>이 미래인 경우 (5분 여유)</li>
-    </ul>
-    "미래인지"를 판단할 때 <code>DateTimeOffset.Now</code>를 함수 안에서 직접 부르면 테스트하기 어려워져요. 어떻게 하면 좋을지 생각해서 <code>ANSWERS.md</code>에 적어 보세요. 정답이 없는 설계 질문이고, The Standard 수업으로 이어져요.</li>
-  <li><strong>TS 타입</strong>: <code>boundary.ts</code> 파일에 이 API 응답에 맞는 TS 타입을 써요. 실행할 필요는 없어요. <code>as const</code> 패턴을 써요.</li>
+  <li><strong>예측 → 실행</strong>: <code>dotnet build</code>가 성공하면, <strong>실행하기 전에</strong> 다섯 입력의 결과(경계에서 막힘, 검증에서 막힘, 모두 통과 중 하나)를 <code>ANSWERS.md</code>에 표로 적어요. 그다음 <code>dotnet run</code>으로 확인하고 맞았는지 표시해요. ③은 위 "한 줄씩 풀어 보기"의 웹 기본값 세 번째 항목과 관련 있어요.</li>
+  <li><strong>"지금"을 바깥에서 받는 이유</strong>: 3번 빈칸에는 실제 실행용으로 <code>TimeProvider.System.GetUtcNow()</code>를 넣어요. 그럼 <strong>테스트할 때는 무엇을 넘길 수 있을까요?</strong> 그게 왜 좋은지 <code>ANSWERS.md</code>에 한 줄로 적어요. The Standard 수업으로 이어지는 질문이에요.</li>
+  <li><strong>TS 타입</strong>: <code>boundary.ts</code> 파일에 이 API 응답에 맞는 TS 타입을 써요. 실행할 필요는 없어요. 수업의 <code>DiaperRecordDto</code>와 <code>as const</code> 패턴을 본떠서 써요.</li>
 </ol>
 
 <div class="callout">

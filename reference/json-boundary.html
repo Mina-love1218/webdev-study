@@ -41,9 +41,18 @@
 </table>
 <p><strong>직렬화기는 형식만 지킨다. 의미는 서비스가 검증한다.</strong></p>
 
-<h2>설정은 앱 전체에 한 번만</h2>
-<pre>var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-options.Converters.Add(new JsonStringEnumConverter());</pre>
+<h2>코드: 설정은 앱 전체에 한 번만</h2>
+<pre>using System.Text.Json;               // JsonSerializer, JsonSerializerOptions, JsonSerializerDefaults
+using System.Text.Json.Serialization; // JsonStringEnumConverter, JsonIgnoreCondition
+
+var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+{
+    Converters = { new JsonStringEnumConverter() },
+};
+
+string json = JsonSerializer.Serialize(obj, options);
+MyType? back = JsonSerializer.Deserialize&lt;MyType&gt;(json, options);</pre>
+<p>옵션은 처음 사용한 뒤에는 바꿀 수 없어요(<code>InvalidOperationException</code>). 그래서 설정은 만들 때 한꺼번에 넣어요. 옵션 인자를 빠뜨리면 <code>General</code> 기본값이 적용돼서 PascalCase 이름과 숫자 enum으로 나가요.</p>
 
 <h2>TS: 값 목록과 타입을 한 곳에서</h2>
 <pre>const diaperContents = ["Pee", "Poo", "Both"] as const;

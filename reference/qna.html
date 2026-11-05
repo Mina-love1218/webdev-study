@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>질문과 답</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<p class="kicker">Reference</p>
+<h1>질문과 답</h1>
+<p class="lede">수업과 숙제를 하며 나온 질문을 모아 둔 곳이에요. 새 질문이 생기면 여기에 쌓여요.</p>
+
+<h2>0002 C# 첫걸음</h2>
+
+<h3>record class와 record struct로 나뉘는데, 엔티티를 class로 하라는 게 앞뒤가 맞나요?</h3>
+<p><strong>타입 종류</strong>(참조 타입인지 값 타입인지)와 <strong>동등성 기준</strong>(무엇이 같으면 같은지)은 서로 다른 축이에요.</p>
+<table>
+<thead><tr><th></th><th>타입 종류</th><th>기본 동등성</th></tr></thead>
+<tbody>
+<tr><td><code>class</code></td><td>참조</td><td>참조 (같은 객체인가)</td></tr>
+<tr><td><code>record</code> / <code>record class</code></td><td><strong>참조</strong></td><td><strong>값</strong> (같은 값인가)</td></tr>
+<tr><td><code>struct</code></td><td>값</td><td>값 (<code>==</code>는 직접 정의해야 함)</td></tr>
+<tr><td><code>record struct</code></td><td>값</td><td>값 (<code>==</code> 자동 생성)</td></tr>
+</tbody>
+</table>
+<p>EF Core가 문제 삼는 것은 <strong>동등성</strong>이에요. 자세한 내용은 아래 질문에 있어요.</p>
+
+<h3>record도 참조 타입인데, 엔티티로 쓰면 안 되는 이유는?</h3>
+<p>컴파일은 돼요. 하지만 두 세계의 규칙이 부딪혀요.</p>
+<ul>
+<li><strong>EF Core:</strong> 키 하나에 인스턴스 하나만 두고 <strong>참조 동등성</strong>으로 추적해요. 그 인스턴스를 <strong>직접 수정해서</strong> 저장해요. 그래서 엔티티의 <code>Equals</code>를 재정의하지 말라고 권해요.</li>
+<li><strong>record:</strong> <code>Equals</code>와 <code>==</code>를 값 기준으로 강제로 재정의하고, <code>with</code>로 <strong>복사본을 만드는</strong> 방식을 권해요.</li>
+</ul>
+<pre>var a = await db.SleepRecords.SingleAsync(r =&gt; r.Id == id); // EF가 a를 추적 중
+var b = a with { EndedAt = now };
+db.Update(b);  // InvalidOperationException: ... another instance with the key value ... is already being tracked.</pre>
+<p>요청과 응답 데이터에는 <strong>정체성(id 추적)이 없어요.</strong> 그래서 값 동등성과 불변성이 자연스럽고, record가 잘 맞아요.</p>
+<p class="sources"><a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record">Records</a> · <a href="https://learn.microsoft.com/en-us/ef/core/change-tracking/identity-resolution">EF Core identity resolution</a> · <a href="https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/expressions/equality">Equality comparisons</a></p>
+
+<h3>nullable의 유용한 점은? <code>?.</code>는 왜 빠졌나요?</h3>
+<p>0002 수업에서 빠뜨린 부분이에요. 선언 쪽(<code>?</code>)만 다루고 <strong>사용하는 쪽</strong>을 빼먹었어요.</p>
+<ul>
+<li><code>a?.B</code>: a가 null이면 결과도 null이고, <strong>뒤에 이어지는 호출은 실행되지 않아요.</strong></li>
+<li><code>a ?? b</code>: a가 null이면 b를 써요.</li>
+<li><code>x ??= y</code>: x가 null일 때만 y를 넣어요.</li>
+</ul>
+<pre>var minutes = sleep.EndedAt?.Subtract(sleep.StartedAt).TotalMinutes;  // 진행 중이면 null
+var label = minutes?.ToString("0") ?? "진행 중";</pre>
+<p>진짜 가치는 <strong>컴파일러가 null 상태를 추적한다</strong>는 데 있어요. <code>?</code>를 붙인 변수를 검사 없이 쓰면 경고가 나요. 반대로 <code>?</code>가 없으면 null이 아니라고 믿고 써도 돼요. 그래서 null 검사를 꼭 필요한 곳에만 하게 돼요.</p>
+<p class="sources"><a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/member-access-operators">Null-conditional</a> · <a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/null-coalescing-operator">Null-coalescing</a> · <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">Nullable reference types</a></p>
+
+<h3><code>DateTimeOffset</code>을 로컬 시간대로 보여 줄 수 있나요?</h3>
+<ul>
+<li><code>ToLocalTime()</code>: <strong>코드가 실행되는 컴퓨터</strong>의 시간대로 바꿔요. 서버에서 부르면 서버의 시간대가 돼요.</li>
+<li><code>TimeZoneInfo.ConvertTime(dto, 시간대)</code>: 원하는 시간대를 직접 지정해서 바꿔요.</li>
+</ul>
+<p><strong>실무 팁:</strong> 서버는 오프셋을 포함한 시각을 그대로 보내고, 보여 줄 때 <strong>브라우저에서</strong> 변환하세요. 사용자의 시간대는 브라우저가 가장 잘 알아요. (0003 수업의 "화면에 보여 줄 때" 참고)</p>
+<p class="sources"><a href="https://learn.microsoft.com/en-us/dotnet/api/system.datetimeoffset.tolocaltime">ToLocalTime</a> · <a href="https://learn.microsoft.com/en-us/dotnet/api/system.timezoneinfo.converttime">ConvertTime</a></p>
+
+<h3>TS에서는 enum을 권장하지 않는데, C# enum과 JSON은 어떻게 연결하나요?</h3>
+<p>TS에서는 문자열 유니온(<code>as const</code> 배열에서 뽑아낸 타입)을 써요. C#에서는 기본적으로 enum이 <strong>숫자</strong>로 나가니, <code>JsonStringEnumConverter</code>를 앱 전체에 한 번 등록해서 이름으로 내보내요. 이런 정보를 찾는 방법은 <strong>경계 질문</strong>이에요. 0003 수업 전체가 이 질문에 대한 답이에요.</p>
+<p class="sources">관련 수업: <a href="../lessons/0003-data-across-boundaries.html">0003 경계를 넘는 데이터</a> · <a href="json-boundary.html">JSON 경계 치트시트</a></p>
+
+</main>
+</body>
+</html>
