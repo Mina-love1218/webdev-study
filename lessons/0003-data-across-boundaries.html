@@ -213,6 +213,57 @@ export const formatRecordTime = (iso: string) =&gt; timeFormat.format(new Date(i
 
 </div>
 
+<h2>코드로 직렬화하기: 숙제 전에 꼭 보세요</h2>
+<p>위의 결과들을 만든 코드예요. 직렬화에는 등장인물이 셋뿐이에요.</p>
+<table>
+<thead><tr><th>이름</th><th>정체</th><th>네임스페이스</th></tr></thead>
+<tbody>
+<tr><td><code>JsonSerializer</code></td><td>정적 클래스. <code>Serialize</code>(객체 → JSON 문자열)와 <code>Deserialize&lt;T&gt;</code>(JSON 문자열 → 객체)를 제공해요<a class="cite" href="#s13">[13]</a></td><td><code>System.Text.Json</code></td></tr>
+<tr><td><code>JsonSerializerOptions</code></td><td>변환 규칙을 담는 <strong>객체</strong>. <code>new</code>로 만들어요</td><td><code>System.Text.Json</code></td></tr>
+<tr><td><code>JsonSerializerDefaults</code></td><td>enum(<code>General</code>, <code>Web</code>, <code>Strict</code>). 옵션을 만들 때 <strong>생성자에 넘기는 값</strong>이에요</td><td><code>System.Text.Json</code></td></tr>
+</tbody>
+</table>
+<p><code>JsonStringEnumConverter</code>와 <code>JsonIgnoreCondition</code>은 다른 네임스페이스 <code>System.Text.Json.Serialization</code>에 있어서 <code>using</code>을 하나 더 적어야 해요.</p>
+<pre><span class="label">C# · 실행 가능한 전체 예제 (.NET 10.0.203에서 실행 확인)</span>using System.Text.Json;
+using System.Text.Json.Serialization;
+
+// ① 옵션 객체를 "한 번" 만든다. 웹 기본값에서 출발해서 필요한 것만 덧붙인다
+var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+{
+    WriteIndented = true,                             // 사람이 읽기 좋게 줄바꿈
+    Converters = { new JsonStringEnumConverter() },  // enum을 이름으로
+};
+
+var sleep = new SleepRecord
+{
+    ChildId = Guid.NewGuid(),
+    StartedAt = DateTimeOffset.Now,
+    Quality = SleepQuality.Good,
+};
+
+// ② 객체 → JSON 문자열
+string json = JsonSerializer.Serialize(sleep, options);
+Console.WriteLine(json);
+
+// ③ JSON 문자열 → 객체. 타입은 &lt;&gt; 안에 적는다. 결과는 null일 수 있어서 SleepRecord?
+SleepRecord? back = JsonSerializer.Deserialize&lt;SleepRecord&gt;(json, options);
+Console.WriteLine(back?.Quality);
+
+public enum SleepQuality { Good, Bad }
+
+public class SleepRecord
+{
+    public required Guid ChildId { get; init; }
+    public required DateTimeOffset StartedAt { get; set; }
+    public DateTimeOffset? EndedAt { get; set; }
+    public required SleepQuality Quality { get; set; }
+}</pre>
+<p>꼭 알아 둘 규칙 두 가지:</p>
+<ul>
+  <li><strong>옵션은 한 번 만들어서 재사용해요.</strong> Microsoft는 "같은 옵션을 반복해서 쓴다면 매번 새로 만들지 말고 같은 인스턴스를 재사용하라"고 해요. 또 "처음 직렬화하거나 역직렬화한 뒤에는 인스턴스가 변경 불가능해진다"고 해요.<a class="cite" href="#s1">[1]</a> 실제로 한 번 사용한 옵션의 속성을 바꾸려고 하면 <code>InvalidOperationException</code>이 나요.</li>
+  <li><strong>ASP.NET Core API에서는 옵션을 직접 만들지 않아요.</strong> 프레임워크가 웹 기본값으로 만들어 두고, 우리는 거기에 설정만 덧붙여요(Controller 수업에서 다뤄요). 이 숙제는 콘솔 앱이라 직접 만드는 거예요.</li>
+</ul>
+
 <h2>PC 숙제 <span class="tag pc">PC · 40분</span></h2>
 <p>이번 숙제는 지난번보다 어려워요. <strong>3번 예측은 꼭 실행하기 전에</strong> 적어 주세요. 예측이 틀린 곳이 바로 이번에 배울 곳이에요.</p>
 <ol>
@@ -271,6 +322,7 @@ cd homework/0003-boundary-data</pre></li>
   <li id="s10"><a href="https://github.com/hassanhabib/The-Standard/blob/master/2.%20Services/2.%20Services.md">The Standard: 2. Services</a></li>
   <li id="s11"><a href="https://learn.microsoft.com/en-us/dotnet/api/system.enum.isdefined">Microsoft Learn: Enum.IsDefined</a></li>
   <li id="s12"><a href="https://learn.microsoft.com/en-us/ef/core/change-tracking/identity-resolution">Microsoft Learn: Identity resolution in EF Core</a></li>
+  <li id="s13"><a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/how-to">Microsoft Learn: How to serialize JSON</a> · <a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/deserialization">How to deserialize JSON</a></li>
 </ol>
 
 <nav class="lesson-nav">
