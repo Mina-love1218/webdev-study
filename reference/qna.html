@@ -37,7 +37,7 @@ var c = new Box { Tags = { "x", "y" } };
 <li><strong>순서:</strong> 생성자가 먼저 실행되고, 그다음 <code>{ }</code> 안의 대입이 일어나요.</li>
 <li><strong><code>( )</code> 생략:</strong> 인자 없는 생성자를 쓸 때는 괄호를 생략할 수 있어요. 0002의 <code>new SleepRecord { ChildId = … }</code>가 이 경우예요.</li>
 <li><strong><code>init</code>과의 관계:</strong> <code>init</code> 프로퍼티는 "객체를 만들 때만" 값을 넣을 수 있다고 했죠. <code>{ }</code>가 바로 그 "만들 때"예요. 그래서 <code>init</code>과 <code>required</code>는 객체 초기화자와 짝으로 쓰여요.</li>
-<li><strong><code>Name = { … }</code>처럼 <code>=</code> 뒤가 다시 중괄호이면</strong> 컬렉션 초기화자예요. 새 목록으로 <strong>바꾸는 게 아니라 기존 목록에 <code>Add</code></strong>해요. 그래서 <code>Converters = { new JsonStringEnumConverter() }</code>는 옵션이 이미 가진 변환기 목록에 하나를 추가하는 거예요.</li>
+<li><strong><code>Tags = { … }</code>처럼 <code>=</code> 뒤가 다시 중괄호이면</strong> 컬렉션 초기화자예요. 새 목록으로 <strong>바꾸는 게 아니라 기존 목록에 <code>Add</code></strong>해요. 그래서 <code>Converters = { new JsonStringEnumConverter() }</code>는 옵션이 이미 가진 변환기 목록에 하나를 추가하는 거예요.</li>
 </ul>
 <pre><span class="label">아래 두 코드는 같은 일을 해요</span>var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
 {
