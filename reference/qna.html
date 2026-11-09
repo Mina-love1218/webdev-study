@@ -12,6 +12,44 @@
 <h1>질문과 답</h1>
 <p class="lede">수업과 숙제를 하며 나온 질문을 모아 둔 곳이에요. 새 질문이 생기면 여기에 쌓여요.</p>
 
+<h2>0003 경계를 넘는 데이터</h2>
+
+<h3>"ASP.NET Core API에서는 옵션을 직접 만들지 않는다"는 무슨 뜻인가요?</h3>
+<p>차이는 <strong>누가 <code>JsonSerializer</code>를 호출하느냐</strong>예요.</p>
+<table>
+<thead><tr><th></th><th>콘솔 앱 (0003 숙제)</th><th>ASP.NET Core API (Controller)</th></tr></thead>
+<tbody>
+<tr><td>JSON → C# 객체</td><td><strong>내가</strong> <code>JsonSerializer.Deserialize</code>를 호출</td><td><strong>프레임워크가</strong> 요청 본문을 읽어서 메서드 매개변수로 넣어 줌</td></tr>
+<tr><td>C# 객체 → JSON</td><td><strong>내가</strong> <code>JsonSerializer.Serialize</code>를 호출</td><td>메서드가 객체를 <code>return</code>하면 <strong>프레임워크가</strong> JSON으로 바꿔 응답 본문에 씀</td></tr>
+<tr><td>옵션 객체</td><td><strong>내가</strong> <code>new JsonSerializerOptions(...)</code>로 만들어 넘김</td><td><strong>프레임워크가</strong> 웹 기본값으로 이미 만들어 둠</td></tr>
+</tbody>
+</table>
+<pre><span class="label">Controller: 직렬화 코드가 하나도 없어요</span>[HttpPost]
+public DiaperRecord Post(DiaperRecord record)   // ← 요청 JSON이 이미 C# 객체로 들어옴
+{
+    return record;                              // ← 이 객체가 응답 JSON으로 나감
+}</pre>
+<p>그러면 enum을 문자열로 바꾸는 것처럼 <strong>설정을 바꾸고 싶을 때는</strong> 어떻게 할까요? 프레임워크가 가진 옵션 객체를 <strong>받아서 덧붙여요.</strong> 앱이 시작할 때 <code>Program.cs</code>에서 한 번만 해요.</p>
+<pre><span class="label">Program.cs</span>builder.Services.AddControllers()
+    .AddJsonOptions(o =&gt;
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));</pre>
+<ul>
+<li><code>o =&gt; …</code>는 람다예요. 프레임워크가 설정 묶음 <code>o</code>를 넘겨주면, 우리는 그 안의 <code>o.JsonSerializerOptions</code>(프레임워크가 만든 옵션 객체)를 고쳐요.</li>
+<li>여기에는 <code>new JsonSerializerOptions</code>가 없어요. 그게 "직접 만들지 않고 덧붙인다"는 뜻이에요.</li>
+<li>프레임워크가 쓰는 옵션은 웹 기본값과 같아요. Microsoft 문서는 <code>JsonSerializerOptions.Web</code>을 "ASP.NET Core가 웹 앱에 쓰는 기본 옵션"이라고 설명해요. 그래서 따로 설정하지 않아도 이름은 camelCase로 나가고, enum은 숫자로 나가요.</li>
+</ul>
+<p><strong>실제로 실행해 본 결과</strong>(.NET 10.0.203, 위 Controller에 <code>POST /diapers</code>):</p>
+<table>
+<thead><tr><th>보낸 <code>content</code></th><th>설정 없음</th><th><code>AddJsonOptions</code>로 변환기 추가</th></tr></thead>
+<tbody>
+<tr><td><code>"Poo"</code></td><td>❌ <code>400 Bad Request</code> (변환 실패)</td><td>✅ <code>"content":"Poo"</code></td></tr>
+<tr><td><code>1</code></td><td>✅ <code>"content":1</code></td><td>✅ <code>"content":"Poo"</code></td></tr>
+</tbody>
+</table>
+<p>설정이 없으면 TS가 보낸 <code>"Poo"</code>를 받지 못하고, 응답으로도 숫자를 내보내요. 0001에서 배운 400(클라이언트 잘못) 응답을 프레임워크가 <strong>자동으로</strong> 만들어 준다는 것도 볼 수 있어요. 이건 나중에 오류 처리 수업에서 다뤄요.</p>
+<p>콘솔 앱의 "옵션은 한 번 만들어 재사용"과 API의 "Program.cs에서 한 번 설정"은 같은 원칙이에요. <strong>규칙은 앱 전체에 한 곳</strong>에 둔다는 거예요. Controller 수업에서 직접 만들어 볼 거예요.</p>
+<p class="sources"><a href="https://learn.microsoft.com/en-us/aspnet/core/web-api/advanced/formatting">Format response data in ASP.NET Core Web API</a> (<code>AddJsonOptions</code> 패턴) · <a href="https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/configure-options">Configure options</a> (웹 기본값)</p>
+
 <h2>0002 C# 첫걸음</h2>
 
 <h3>record class와 record struct로 나뉘는데, 엔티티를 class로 하라는 게 앞뒤가 맞나요?</h3>

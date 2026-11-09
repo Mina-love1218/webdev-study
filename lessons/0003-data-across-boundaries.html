@@ -280,7 +280,7 @@ public class SleepRecord
 <pre>InvalidOperationException: This JsonSerializerOptions instance is read-only
 or has already been used in serialization or deserialization.</pre>
     .NET 9부터 있는 <code>JsonSerializerOptions.Web</code>도 읽기 전용이라서, 거기에 변환기를 추가하려고 하면 같은 예외가 나요(실행해서 확인했어요). 그러니 설정은 <strong>만들 때 한꺼번에</strong> 다 넣으세요.</li>
-  <li><strong>ASP.NET Core API에서는 옵션을 직접 만들지 않아요.</strong> 프레임워크가 웹 기본값으로 만들어 두고, 우리는 거기에 설정만 덧붙여요(Controller 수업에서 다뤄요). 이 숙제는 콘솔 앱이라 직접 만드는 거예요.</li>
+  <li><strong>ASP.NET Core API에서는 옵션을 직접 만들지 않아요.</strong> 프레임워크가 웹 기본값으로 만들어 두고, 우리는 거기에 설정만 덧붙여요(Controller 수업에서 다뤄요). 이 숙제는 콘솔 앱이라 직접 만드는 거예요. <a href="../reference/qna.html">자세한 설명은 질문과 답</a>에 있어요.</li>
 </ul>
 
 <h2>PC 숙제 <span class="tag pc">PC · 40분</span></h2>
