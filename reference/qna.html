@@ -14,6 +14,45 @@
 
 <h2>0003 경계를 넘는 데이터</h2>
 
+<h3><code>new 타입(인자) { … }</code>에서 <code>{ }</code>는 뭔가요?</h3>
+<p><strong>객체 초기화자</strong><span class="en">(object initializer)</span>예요. 객체를 만든 <strong>직후에</strong> 프로퍼티 값을 넣는 문법이에요. 두 부분은 하는 일이 달라요.</p>
+<table>
+<thead><tr><th>부분</th><th>하는 일</th><th>순서</th></tr></thead>
+<tbody>
+<tr><td><code>(인자)</code></td><td><strong>생성자</strong>를 호출해요</td><td>1번째</td></tr>
+<tr><td><code>{ 이름 = 값, … }</code></td><td>만들어진 객체의 <strong>프로퍼티에 값을 대입</strong>해요</td><td>2번째</td></tr>
+</tbody>
+</table>
+<pre><span class="label">C# · 직접 실행한 결과 (.NET 10.0.203)</span>var a = new Box("생성자 인자") { Name = "초기화자" };
+//  출력: 생성자("생성자 인자") 실행
+//  a.Name = 초기화자          ← 생성자가 넣은 값을 { }가 덮어씀 (생성자 → { } 순서)
+
+var b = new Box { Name = "괄호 생략" };
+//  출력: 생성자() 실행          ← 인자 없는 생성자를 쓸 땐 ( )를 생략할 수 있어요
+
+var c = new Box { Tags = { "x", "y" } };
+//  c.Tags = 기본,x,y           ← 목록을 바꾸지 않고 기존 목록에 Add</pre>
+<p>위 결과에서 알 수 있는 것:</p>
+<ul>
+<li><strong>순서:</strong> 생성자가 먼저 실행되고, 그다음 <code>{ }</code> 안의 대입이 일어나요.</li>
+<li><strong><code>( )</code> 생략:</strong> 인자 없는 생성자를 쓸 때는 괄호를 생략할 수 있어요. 0002의 <code>new SleepRecord { ChildId = … }</code>가 이 경우예요.</li>
+<li><strong><code>init</code>과의 관계:</strong> <code>init</code> 프로퍼티는 "객체를 만들 때만" 값을 넣을 수 있다고 했죠. <code>{ }</code>가 바로 그 "만들 때"예요. 그래서 <code>init</code>과 <code>required</code>는 객체 초기화자와 짝으로 쓰여요.</li>
+<li><strong><code>Name = { … }</code>처럼 <code>=</code> 뒤가 다시 중괄호이면</strong> 컬렉션 초기화자예요. 새 목록으로 <strong>바꾸는 게 아니라 기존 목록에 <code>Add</code></strong>해요. 그래서 <code>Converters = { new JsonStringEnumConverter() }</code>는 옵션이 이미 가진 변환기 목록에 하나를 추가하는 거예요.</li>
+</ul>
+<pre><span class="label">아래 두 코드는 같은 일을 해요</span>var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+{
+    WriteIndented = true,
+    Converters = { new JsonStringEnumConverter() },
+};
+
+// ↕ 같음
+
+var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+options.WriteIndented = true;
+options.Converters.Add(new JsonStringEnumConverter());</pre>
+<p><strong>TS로 비유하면</strong> <code>Object.assign(new Box(), { name: "…" })</code>와 비슷해요. 다만 C#은 컴파일러가 프로퍼티 이름과 타입을 검사하고, <code>required</code>를 빠뜨리면 컴파일 오류를 내 줘요.</p>
+<p class="sources"><a href="https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/object-and-collection-initializers">Microsoft Learn: Object and Collection Initializers</a></p>
+
 <h3>"ASP.NET Core API에서는 옵션을 직접 만들지 않는다"는 무슨 뜻인가요?</h3>
 <p>차이는 <strong>누가 <code>JsonSerializer</code>를 호출하느냐</strong>예요.</p>
 <table>
